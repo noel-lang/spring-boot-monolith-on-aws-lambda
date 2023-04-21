@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Spring Boot Monolith powered by AWS Lambda
+Globals:
+  Function:
+    Timeout: 10
+
+Resources:
+  SpringBootAwsLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageUri: <image-uri>
+      MemorySize: 1024
+      Tracing: Active
+      Environment:
+        Variables:
+          REMOVE_BASE_PATH: /v1
+      AutoPublishAlias: live
+      DeploymentPreference:
+        Type: AllAtOnce
+      ProvisionedConcurrencyConfig:
+        ProvisionedConcurrentExecutions: 1
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            Path: /v1
+            Method: ANY
+        SpringBootAwsLambda:
+          Type: HttpApi
+          Properties:
+            Path: /v1/{proxy+}
+            Method: ANY
+    Metadata:
+      Dockerfile: Dockerfile
+      DeployTimestamp: 2023-04-22T00:16:16Z
+
+Outputs:
+  SpringBootAwsLambdaApi:
+    Description: "API Gateway Endpoint URL"
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/"
