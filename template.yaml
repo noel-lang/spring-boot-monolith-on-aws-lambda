@@ -19,8 +19,6 @@ Resources:
       AutoPublishAlias: live
       DeploymentPreference:
         Type: AllAtOnce
-      ProvisionedConcurrencyConfig:
-        ProvisionedConcurrentExecutions: 1
       Events:
         Root:
           Type: HttpApi
@@ -34,8 +32,85 @@ Resources:
             Method: ANY
     Metadata:
       Dockerfile: Dockerfile
-      DeployTimestamp: 2023-04-22T00:16:16Z
+      DeployTimestamp: 2023-04-25T20:31:00Z
+  WarmUpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs14.x
+      Handler: index.handler
+      InlineCode: |
+        const https = require('https');
 
+        exports.handler = async (event, context) => {
+          const apiGatewayUrl = process.env.API_GATEWAY_URL;
+
+          return new Promise((resolve, reject) => {
+            https.get(apiGatewayUrl + "/v1", (res) => {
+              resolve({
+                statusCode: 200,
+                body: JSON.stringify("Warm up finished")
+              });
+            }).on('error', (err) => {
+              console.log(`Error: ${err.message}`);
+              reject({
+                statusCode: 500,
+                body: JSON.stringify("Warm up failed")
+              });
+            });
+          });
+        };
+      Environment:
+        Variables:
+          API_GATEWAY_URL: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/"
+  KeepLambdaWarmRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "Schedules a warm-up event every 5 minutes."
+      ScheduleExpression: "rate(5 minutes)"
+      State: "ENABLED"
+      Targets:
+        - Arn: !GetAtt WarmUpFunction.Arn
+          Id: WarmUpTarget
+  WarmUpFunctionRoleLambda:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: WarmUpFunctionLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+        - PolicyName: WarmUpFunctionInternetAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:CreateNetworkInterface
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DeleteNetworkInterface
+                Resource: '*'
+  WarmUpFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt WarmUpFunction.Arn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt KeepLambdaWarmRule.Arn
 Outputs:
   SpringBootAwsLambdaApi:
     Description: "API Gateway Endpoint URL"

@@ -18,12 +18,6 @@ public class SpringBootAwsLambdaApplication {
 		SpringApplication.run(SpringBootAwsLambdaApplication.class, args);
 	}
 
-	@ExceptionHandler(NoHandlerFoundException.class)
-	public ResponseEntity<ErrorResponse> handleNotFoundError() {
-		ErrorResponse errorResponse = new ErrorResponse("Resource not found");
-		return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
-	}
-
 	@GetMapping("/hello-world")
 	public ResponseEntity<String> helloWorld() {
 		return ResponseEntity.ok("Hello World 123! Heheeeee");
@@ -32,22 +26,6 @@ public class SpringBootAwsLambdaApplication {
 	@GetMapping("/")
 	public String standard() {
 		return "Das ist ein anderer Default-Wert 123! 456 trololo";
-	}
-
-	private static class ErrorResponse {
-		private String message;
-
-		public ErrorResponse(String message) {
-			this.message = message;
-		}
-
-		public String getMessage() {
-			return message;
-		}
-
-		public void setMessage(String message) {
-			this.message = message;
-		}
 	}
 
 }
